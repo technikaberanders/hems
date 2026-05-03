@@ -1,0 +1,22 @@
+name: "HEMS – Home Energy Management System"
+description: "Speichert und analysiert Strompreise aus Home Assistant in MariaDB"
+version: "1.0.0"
+slug: hems  # Wichtig: Muss dem Repository-Namen entsprechen!
+init: false
+arch:
+  - amd64
+  - armhf
+  - armv7
+network:
+  - host  # Zugriff auf MariaDB und HA-API
+environment:
+  MARIADB_HOST: "a0d7b954-mariadb"  # Name des MariaDB Add-on Containers
+  MARIADB_PORT: "3306"
+  MARIADB_USER: "hems_user"
+  MARIADB_PASSWORD: "hems_password"
+  MARIADB_DATABASE: "hems_database"
+  HA_TOKEN: "DEIN_LONG_LIVED_ACCESS_TOKEN"
+options:
+  cron_schedule: "0 */6 * * *"  # Alle 6 Stunden
+schema:
+  cron_schedule: str
