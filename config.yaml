@@ -1,7 +1,7 @@
 name: "HEMS – Home Energy Management System"
 description: "Speichert und analysiert Strompreise aus Home Assistant in MariaDB"
 version: "1.0.0"
-slug: hems  # Wichtig: Muss dem Repository-Namen entsprechen!
+slug: hems
 init: false
 arch:
   - amd64
