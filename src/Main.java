@@ -3,7 +3,6 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.time.Instant;
 import java.util.*;
 
 public class Main {
@@ -17,14 +16,6 @@ public class Main {
 
             // 2. Zukunftswerte in MariaDB speichern
             storePricesInMariaDB(futurePrices);
-
-            // 3. Günstigste zusammenhängende Slots berechnen und speichern
-            List<String> cheapestSlot = findCheapestContiguousSlot(futurePrices, 10);
-            if (!cheapestSlot.isEmpty()) {
-                storeCheapestSlotInMariaDB(cheapestSlot, 10);
-            } else {
-                System.out.println("Keine gültigen Slots gefunden.");
-            }
 
             System.out.println("HEMS Add-on erfolgreich ausgeführt.");
 
@@ -54,7 +45,7 @@ public class Main {
         String jsonResponse = response.body();
         Map<String, Double> prices = new HashMap<>();
 
-        // JSON parsen (vereinfacht, für echte Anwendung: org.json oder Gson verwenden)
+        // JSON parsen (vereinfacht)
         if (jsonResponse.contains("\"prices\":{")) {
             String pricesJson = jsonResponse.split("\"prices\":\\{")[1].split("\\}")[0];
             String[] entries = pricesJson.split(",");
@@ -92,62 +83,6 @@ public class Main {
             }
             stmt.executeBatch();
             System.out.println("Erfolgreich " + prices.size() + " Zukunftswerte in MariaDB gespeichert.");
-        }
-    }
-
-    // 3. Günstigste zusammenhängende Slots finden (Sliding Window)
-    private static List<String> findCheapestContiguousSlot(Map<String, Double> prices, int slotLength) {
-        // 1. Nach Zeit sortieren (wichtig!)
-        List<Map.Entry<String, Double>> sortedEntries = new ArrayList<>(prices.entrySet());
-        sortedEntries.sort(Comparator.comparing(Map.Entry::getKey));
-
-        // 2. Gleitendes Fenster anwenden
-        double minAvgPrice = Double.MAX_VALUE;
-        List<String> bestSlot = new ArrayList<>();
-
-        for (int i = 0; i <= sortedEntries.size() - slotLength; i++) {
-            List<Map.Entry<String, Double>> slot = sortedEntries.subList(i, i + slotLength);
-            double avgPrice = slot.stream().mapToDouble(Map.Entry::getValue).average().orElse(0.0);
-
-            if (avgPrice < minAvgPrice) {
-                minAvgPrice = avgPrice;
-                bestSlot = slot.stream().map(Map.Entry::getKey).toList();
-            }
-        }
-        return bestSlot;
-    }
-
-    // 4. Günstigste Slots in MariaDB speichern
-    private static void storeCheapestSlotInMariaDB(List<String> slotTimestamps, int slotLength) throws SQLException {
-        if (slotTimestamps.isEmpty()) return;
-
-        String host = System.getenv("MARIADB_HOST");
-        String port = System.getenv("MARIADB_PORT");
-        String user = System.getenv("MARIADB_USER");
-        String password = System.getenv("MARIADB_PASSWORD");
-        String database = System.getenv("MARIADB_DATABASE");
-
-        String jdbcUrl = "jdbc:mariadb://" + host + ":" + port + "/" + database;
-        String startTime = slotTimestamps.get(0);
-        String endTime = slotTimestamps.get(slotTimestamps.size() - 1);
-        double avgPrice = slotTimestamps.stream()
-                .mapToDouble(t -> prices.get(t))  // Annahme: prices ist eine Class-Variable (vereinfacht)
-                .average()
-                .orElse(0.0);
-
-        try (Connection conn = DriverManager.getConnection(jdbcUrl, user, password)) {
-            String sql = "INSERT INTO cheapest_slots (start_time, end_time, avg_price, slot_length) " +
-                         "VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE avg_price = ?, end_time = ?";
-            PreparedStatement stmt = conn.prepareStatement(sql);
-            stmt.setString(1, startTime);
-            stmt.setString(2, endTime);
-            stmt.setDouble(3, avgPrice);
-            stmt.setInt(4, slotLength);
-            stmt.setDouble(5, avgPrice);
-            stmt.setString(6, endTime);
-            stmt.executeUpdate();
-            System.out.println("Günstigster Slot gespeichert: " + startTime + " bis " + endTime +
-                               " (Durchschnitt: " + avgPrice + " €/kWh)");
         }
     }
 }
